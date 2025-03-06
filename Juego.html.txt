@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego 3D Otaku Metaverso</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+</head>
+<body>
+    <script>
+        // Configuración básica de Three.js
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Fondo del metaverso
+        scene.background = new THREE.Color(0x000011);
+
+        // Luces futuristas
+        const ambientLight = new THREE.AmbientLight(0x4040ff, 1);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
+        directionalLight.position.set(5, 10, 5);
+        scene.add(directionalLight);
+
+        // Plataforma principal con textura futurista
+        const textureLoader = new THREE.TextureLoader();
+        const platformTexture = textureLoader.load('https://threejsfundamentals.org/threejs/resources/images/checker.png');
+        platformTexture.wrapS = platformTexture.wrapT = THREE.RepeatWrapping;
+        platformTexture.repeat.set(4, 4);
+
+        const platformGeometry = new THREE.BoxGeometry(10, 1, 10);
+        const platformMaterial = new THREE.MeshStandardMaterial({ map: platformTexture });
+        const platform = new THREE.Mesh(platformGeometry, platformMaterial);
+        platform.position.y = -1;
+        scene.add(platform);
+
+        // Dificultades
+        const difficultyLevels = {
+            'medium': { gravity: 0.01, speed: 0.1 },
+            'medium-high': { gravity: 0.02, speed: 0.15 },
+            'high': { gravity: 0.03, speed: 0.2, movingPlatforms: true }
+        };
+        let currentDifficulty = 'medium';
+        let gravity = difficultyLevels[currentDifficulty].gravity;
+        let speed = difficultyLevels[currentDifficulty].speed;
+
+        // Múltiples plataformas flotantes y móviles
+        function createPlatform(x, y, z, moving = false) {
+            const geometry = new THREE.BoxGeometry(3, 1, 3);
+            const material = new THREE.MeshStandardMaterial({ color: 0x00ffcc });
+            const platform = new THREE.Mesh(geometry, material);
+            platform.position.set(x, y, z);
+            platform.moving = moving;
+            platform.direction = 1;
+            scene.add(platform);
+            return platform;
+        }
+        const platforms = [
+            createPlatform(5, 0, 0),
+            createPlatform(-5, 2, -5),
+            createPlatform(0, 4, 5)
+        ];
+        if (difficultyLevels[currentDifficulty].movingPlatforms) {
+            platforms.push(createPlatform(3, 5, -3, true));
+        }
+
+        // Cargar modelo 3D del personaje otaku
+        const loader = new THREE.GLTFLoader();
+        let player;
+        loader.load('https://models.readyplayer.me/Avatar.glb', function(gltf) {
+            player = gltf.scene;
+            player.scale.set(1, 1, 1);
+            player.position.set(0, 1, 0);
+            scene.add(player);
+        });
+
+        camera.position.set(0, 5, 15);
+
+        // Controles del jugador
+        let velocity = { x: 0, y: 0, z: 0 };
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "ArrowRight") velocity.x = speed;
+            if (event.key === "ArrowLeft") velocity.x = -speed;
+            if (event.key === "ArrowUp") velocity.z = -speed;
+            if (event.key === "ArrowDown") velocity.z = speed;
+            if (event.key === " ") velocity.y = 0.2; // Salto
+        });
+        document.addEventListener("keyup", () => {
+            velocity.x = 0;
+            velocity.z = 0;
+        });
+
+        // Música de fondo
+        const listener = new THREE.AudioListener();
+        camera.add(listener);
+        const sound = new THREE.Audio(listener);
+        const audioLoader = new THREE.AudioLoader();
+        audioLoader.load('https://www.myinstants.com/media/sounds/epic.mp3', function(buffer) {
+            sound.setBuffer(buffer);
+            sound.setLoop(true);
+            sound.setVolume(0.5);
+            sound.play();
+        });
+
+        // Animación del juego
+        function animate() {
+            requestAnimationFrame(animate);
+            if (player) {
+                player.position.x += velocity.x;
+                player.position.z += velocity.z;
+                player.position.y += velocity.y;
+                if (player.position.y > 1) velocity.y -= gravity; // Gravedad
+                if (player.position.y < 1) player.position.y = 1; // Suelo
+            }
+            platforms.forEach(platform => {
+                if (platform.moving) {
+                    platform.position.x += 0.05 * platform.direction;
+                    if (platform.position.x > 6 || platform.position.x < -6) {
+                        platform.direction *= -1;
+                    }
+                }
+            });
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
